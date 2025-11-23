@@ -11,8 +11,12 @@ python-telegram-bot==20.7
 python-telegram-bot[job-queue]
 
 # LLM integration
-openai==1.6.1
-anthropic==0.8.1
+# Выберите нужный провайдер (все опциональные)
+# openai==1.6.1          # Для OpenAI GPT (платный)
+# anthropic==0.8.1       # Для Anthropic Claude (платный)
+# Для Perplexity - используется httpx
+# Для Ollama - используется httpx (бесплатно, локально)
+# Для Hugging Face - используется httpx (бесплатно с ограничениями)
 
 # Database
 sqlalchemy==2.0.23

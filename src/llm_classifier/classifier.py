@@ -3,9 +3,8 @@
 Email classifier using LLM
 """
 from typing import Dict, Optional, List
-from openai import OpenAI
-from anthropic import Anthropic
 import json
+import httpx
 
 from config.settings import Config
 from src.utils.logger import logger
@@ -30,16 +29,36 @@ class EmailClassifier:
     
     def __init__(self):
         self.provider = Config.LLM_PROVIDER
+        self.client = None
         
         if self.provider == "openai":
+            from openai import OpenAI
             self.client = OpenAI(api_key=Config.OPENAI_API_KEY)
             self.model = Config.OPENAI_MODEL
             self.max_tokens = Config.OPENAI_MAX_TOKENS
             self.temperature = Config.OPENAI_TEMPERATURE
         elif self.provider == "anthropic":
+            from anthropic import Anthropic
             self.client = Anthropic(api_key=Config.ANTHROPIC_API_KEY)
             self.model = Config.ANTHROPIC_MODEL
             self.max_tokens = Config.ANTHROPIC_MAX_TOKENS
+        elif self.provider == "perplexity":
+            # Perplexity использует OpenAI-совместимый API
+            self.model = Config.PERPLEXITY_MODEL
+            self.max_tokens = Config.PERPLEXITY_MAX_TOKENS
+            self.temperature = Config.PERPLEXITY_TEMPERATURE
+            self.api_key = Config.PERPLEXITY_API_KEY
+        elif self.provider == "ollama":
+            # Ollama локальный
+            self.base_url = Config.OLLAMA_BASE_URL
+            self.model = Config.OLLAMA_MODEL
+            self.max_tokens = Config.OLLAMA_MAX_TOKENS
+            self.temperature = Config.OLLAMA_TEMPERATURE
+        elif self.provider == "huggingface":
+            # Hugging Face Inference API
+            self.model = Config.HUGGINGFACE_MODEL
+            self.max_tokens = Config.HUGGINGFACE_MAX_TOKENS
+            self.api_key = Config.HUGGINGFACE_API_KEY
         else:
             raise ValueError(f"Неподдерживаемый LLM провайдер: {self.provider}")
         
@@ -72,8 +91,16 @@ class EmailClassifier:
             # Вызов LLM
             if self.provider == "openai":
                 response = self._classify_with_openai(prompt)
-            else:
+            elif self.provider == "anthropic":
                 response = self._classify_with_anthropic(prompt)
+            elif self.provider == "perplexity":
+                response = self._classify_with_perplexity(prompt)
+            elif self.provider == "ollama":
+                response = self._classify_with_ollama(prompt)
+            elif self.provider == "huggingface":
+                response = self._classify_with_huggingface(prompt)
+            else:
+                raise ValueError(f"Неподдерживаемый провайдер: {self.provider}")
             
             # Парсинг ответа
             result = self._parse_llm_response(response)
@@ -158,6 +185,92 @@ class EmailClassifier:
             
         except Exception as e:
             logger.error(f"Ошибка вызова Anthropic API: {e}")
+            raise
+    
+    def _classify_with_perplexity(self, prompt: str) -> str:
+        """Классификация через Perplexity API"""
+        try:
+            # Perplexity использует OpenAI-совместимый API
+            url = "https://api.perplexity.ai/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+            data = {
+                "model": self.model,
+                "messages": [
+                    {"role": "system", "content": "Ты - эксперт по классификации email-писем. Ты всегда отвечаешь в формате JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                "max_tokens": self.max_tokens,
+                "temperature": self.temperature
+            }
+            
+            response = httpx.post(url, headers=headers, json=data, timeout=30.0)
+            response.raise_for_status()
+            result = response.json()
+            
+            return result["choices"][0]["message"]["content"]
+            
+        except Exception as e:
+            logger.error(f"Ошибка вызова Perplexity API: {e}")
+            raise
+    
+    def _classify_with_ollama(self, prompt: str) -> str:
+        """Классификация через Ollama (локально)"""
+        try:
+            url = f"{self.base_url}/api/generate"
+            data = {
+                "model": self.model,
+                "prompt": f"Ты - эксперт по классификации email-писем. Ты всегда отвечаешь в формате JSON.\n\n{prompt}",
+                "stream": False,
+                "options": {
+                    "temperature": self.temperature,
+                    "num_predict": self.max_tokens
+                }
+            }
+            
+            response = httpx.post(url, json=data, timeout=60.0)
+            response.raise_for_status()
+            result = response.json()
+            
+            return result["response"]
+            
+        except Exception as e:
+            logger.error(f"Ошибка вызова Ollama API: {e}")
+            logger.error("Убедитесь, что Ollama запущен и модель загружена: ollama pull llama3.2")
+            raise
+    
+    def _classify_with_huggingface(self, prompt: str) -> str:
+        """Классификация через Hugging Face Inference API"""
+        try:
+            url = f"https://api-inference.huggingface.co/models/{self.model}"
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+            data = {
+                "inputs": f"Ты - эксперт по классификации email-писем. Ты всегда отвечаешь в формате JSON.\n\n{prompt}",
+                "parameters": {
+                    "max_new_tokens": self.max_tokens,
+                    "return_full_text": False
+                }
+            }
+            
+            response = httpx.post(url, headers=headers, json=data, timeout=60.0)
+            response.raise_for_status()
+            result = response.json()
+            
+            # Hugging Face может вернуть разные форматы
+            if isinstance(result, list) and len(result) > 0:
+                return result[0].get("generated_text", "")
+            elif isinstance(result, dict):
+                return result.get("generated_text", "")
+            
+            return str(result)
+            
+        except Exception as e:
+            logger.error(f"Ошибка вызова Hugging Face API: {e}")
             raise
     
     def _parse_llm_response(self, response: str) -> Dict:

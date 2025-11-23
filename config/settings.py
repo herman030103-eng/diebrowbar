@@ -42,15 +42,35 @@ class Config:
     OUTLOOK_SMTP_PORT = int(os.getenv("OUTLOOK_SMTP_PORT", "587"))
     
     # LLM настройки / LLM settings
-    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai")
+    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama")
+    
+    # OpenAI
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4-turbo-preview")
     OPENAI_MAX_TOKENS = int(os.getenv("OPENAI_MAX_TOKENS", "1000"))
     OPENAI_TEMPERATURE = float(os.getenv("OPENAI_TEMPERATURE", "0.3"))
     
+    # Anthropic
     ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
     ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-3-sonnet-20240229")
     ANTHROPIC_MAX_TOKENS = int(os.getenv("ANTHROPIC_MAX_TOKENS", "1000"))
+    
+    # Perplexity
+    PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY")
+    PERPLEXITY_MODEL = os.getenv("PERPLEXITY_MODEL", "llama-3.1-sonar-small-128k-online")
+    PERPLEXITY_MAX_TOKENS = int(os.getenv("PERPLEXITY_MAX_TOKENS", "1000"))
+    PERPLEXITY_TEMPERATURE = float(os.getenv("PERPLEXITY_TEMPERATURE", "0.3"))
+    
+    # Ollama (бесплатно, локально)
+    OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
+    OLLAMA_MAX_TOKENS = int(os.getenv("OLLAMA_MAX_TOKENS", "1000"))
+    OLLAMA_TEMPERATURE = float(os.getenv("OLLAMA_TEMPERATURE", "0.3"))
+    
+    # Hugging Face
+    HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
+    HUGGINGFACE_MODEL = os.getenv("HUGGINGFACE_MODEL", "mistralai/Mistral-7B-Instruct-v0.2")
+    HUGGINGFACE_MAX_TOKENS = int(os.getenv("HUGGINGFACE_MAX_TOKENS", "1000"))
     
     # Telegram настройки / Telegram settings
     TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -145,6 +165,13 @@ class Config:
             errors.append("OPENAI_API_KEY не установлен")
         elif cls.LLM_PROVIDER == "anthropic" and not cls.ANTHROPIC_API_KEY:
             errors.append("ANTHROPIC_API_KEY не установлен")
+        elif cls.LLM_PROVIDER == "perplexity" and not cls.PERPLEXITY_API_KEY:
+            errors.append("PERPLEXITY_API_KEY не установлен")
+        elif cls.LLM_PROVIDER == "huggingface" and not cls.HUGGINGFACE_API_KEY:
+            errors.append("HUGGINGFACE_API_KEY не установлен")
+        elif cls.LLM_PROVIDER == "ollama":
+            # Ollama не требует API ключа, но предупредим если не запущен
+            pass
         
         if not cls.TELEGRAM_BOT_TOKEN:
             errors.append("TELEGRAM_BOT_TOKEN не установлен")

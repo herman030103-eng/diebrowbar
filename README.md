@@ -164,9 +164,44 @@ EMAIL_ADDRESS=your_email@outlook.com
 EMAIL_PASSWORD=your_password
 ```
 
-### Шаг 3: Настройка LLM (OpenAI или Anthropic)
+### Шаг 3: Настройка LLM
 
-#### Для OpenAI:
+**🆓 Хотите бесплатную альтернативу?** → [Смотрите FREE_LLM_GUIDE.md](FREE_LLM_GUIDE.md)
+
+Доступные провайдеры:
+- **Ollama** - БЕСПЛАТНО, локально (рекомендуется)
+- **Hugging Face** - БЕСПЛАТНО с ограничениями
+- **Perplexity** - Платно (если у вас есть аккаунт)
+- **OpenAI** - Платно
+- **Anthropic** - Платно
+
+#### Для Ollama (БЕСПЛАТНО, рекомендуется):
+
+1. Установите Ollama: https://ollama.ai/download
+2. Загрузите модель:
+```bash
+ollama pull llama3.2
+```
+3. В файле `.env`:
+```env
+LLM_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.2
+OLLAMA_MAX_TOKENS=1000
+OLLAMA_TEMPERATURE=0.3
+```
+
+#### Для Perplexity (Ваш платный аккаунт):
+
+1. Получите API ключ: https://www.perplexity.ai/settings/api
+2. В файле `.env`:
+```env
+LLM_PROVIDER=perplexity
+PERPLEXITY_API_KEY=pplx-your-api-key-here
+PERPLEXITY_MODEL=llama-3.1-sonar-small-128k-online
+```
+
+#### Для OpenAI (платно):
 
 1. Получите API ключ на https://platform.openai.com/api-keys
 2. В файле `.env`:
