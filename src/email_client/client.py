@@ -245,6 +245,21 @@ class EmailClient:
             
             logger.debug(f"Попытка переместить письмо {email_id} в папку '{destination_folder}'")
             
+            # Gmail система папок требует специальной обработки
+            # Вместо перемещения в [Gmail]/All Mail, используем добавление лейбла
+            if "[Gmail]" in destination_folder or destination_folder in ["[Gmail]/All Mail", "All Mail"]:
+                # Для Gmail архивирования просто удаляем из Inbox и не удаляем письмо
+                logger.info(f"Gmail архивирование: удаление из Inbox для письма {email_id}")
+                try:
+                    # Удаляем лейбл Inbox (это архивирование в Gmail)
+                    self.connection.store(email_id_bytes, "-FLAGS", "\\Inbox")
+                    logger.info(f"Письмо {email_id} заархивировано (удалено из Inbox)")
+                    return True
+                except:
+                    # Если не получилось через лейблы, пробуем стандартный способ
+                    pass
+            
+            # Стандартное перемещение для обычных папок
             # Копирование письма в целевую папку
             status = self.connection.copy(email_id_bytes, destination_folder)
             
@@ -305,6 +320,33 @@ class EmailClient:
             
         except Exception as e:
             logger.error(f"Ошибка пометки письма: {e}")
+            return False
+    
+    def archive_email(self, email_id: str) -> bool:
+        """Архивирование письма (Gmail-совместимо)"""
+        try:
+            if not self.connected:
+                self.connect()
+            
+            # Преобразование email_id в bytes если это строка
+            if isinstance(email_id, str):
+                email_id_bytes = email_id.encode()
+            else:
+                email_id_bytes = email_id
+            
+            # Для Gmail архивирование = удаление из Inbox
+            # Письмо остается в All Mail автоматически
+            logger.debug(f"Архивирование письма {email_id}")
+            
+            # Удаляем из текущей папки (обычно Inbox)
+            self.connection.store(email_id_bytes, "+FLAGS", "\\Deleted")
+            self.connection.expunge()
+            
+            logger.info(f"Письмо {email_id} заархивировано")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Ошибка архивирования письма: {e}")
             return False
     
     def __enter__(self):

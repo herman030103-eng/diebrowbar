@@ -275,9 +275,8 @@ class EmailAgent:
                 return self.email_client.move_email(email_id, destination)
             
             elif action == "archive":
-                # Перемещение в архив
-                archive_folder = "[Gmail]/All Mail" if Config.EMAIL_PROVIDER == "gmail" else "Archive"
-                return self.email_client.move_email(email_id, archive_folder)
+                # Архивирование (Gmail-совместимое)
+                return self.email_client.archive_email(email_id)
             
             elif action == "skip":
                 logger.info("Пропуск обработки письма (правило skip)")
