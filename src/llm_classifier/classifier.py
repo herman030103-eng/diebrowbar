@@ -172,7 +172,7 @@ class EmailClassifier:
     "category": "ТОЧНОЕ_ИМЯ_КАТЕГОРИИ",
     "confidence": 0.95,
     "reasoning": "краткое объяснение выбора",
-    "suggested_folder": "название папки",
+    "suggested_folder": "English Folder Name",
     "is_spam": false,
     "should_delete": false,
     "should_archive": false,
@@ -182,11 +182,13 @@ class EmailClassifier:
 Требования к ответу:
 1. category - СТРОГО одна из перечисленных выше (SPAM, PROMO, SOCIAL, UPDATES, WORK, PERSONAL, FINANCE, SHOPPING, TRAVEL, IMPORTANT)
 2. confidence - реальная оценка уверенности от 0.0 до 1.0 (не завышай!)
-3. suggested_folder - краткое название папки на русском
+3. suggested_folder - краткое название папки на АНГЛИЙСКОМ языке (English only! Example: "GitHub Notifications", "Work", "Shopping")
 4. is_spam - true только для явного спама
 5. should_delete - true только для явного спама
 6. should_archive - true для неважных уведомлений
 7. priority - "high" только для действительно важных
+
+ВАЖНО: suggested_folder ОБЯЗАТЕЛЬНО должна быть на английском языке!
 
 Отвечай ТОЛЬКО валидным JSON без дополнительного текста!"""
         

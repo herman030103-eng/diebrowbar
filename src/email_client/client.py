@@ -14,6 +14,41 @@ from src.utils.logger import logger
 from src.utils.helpers import clean_text
 
 
+def encode_imap_folder_name(folder_name: str) -> str:
+    """
+    Кодирование имени папки в Modified UTF-7 (IMAP требует это для не-ASCII символов)
+    Encode folder name to Modified UTF-7 (IMAP requires this for non-ASCII characters)
+    """
+    try:
+        # Пробуем закодировать как ASCII - если получилось, используем как есть
+        folder_name.encode('ascii')
+        return folder_name
+    except UnicodeEncodeError:
+        # Если есть не-ASCII символы, кодируем в Modified UTF-7
+        # Python's imaplib.utf7_encode() - это то, что нужно
+        encoded = folder_name.encode('utf-7')
+        # Modified UTF-7 для IMAP: заменяем '+' на '&' и добавляем '-' после кодированных частей
+        modified = encoded.decode('ascii').replace('+', '&').replace('/', ',')
+        return modified
+
+
+def decode_imap_folder_name(folder_name: str) -> str:
+    """
+    Декодирование имени папки из Modified UTF-7
+    Decode folder name from Modified UTF-7
+    """
+    try:
+        # Если нет специальных символов, возвращаем как есть
+        if '&' not in folder_name:
+            return folder_name
+        # Декодируем Modified UTF-7
+        modified = folder_name.replace('&', '+').replace(',', '/')
+        decoded = modified.encode('ascii').decode('utf-7')
+        return decoded
+    except:
+        return folder_name
+
+
 class EmailClient:
     """Клиент для работы с почтовым ящиком"""
     
@@ -86,7 +121,11 @@ class EmailClient:
             if not self.connected:
                 self.connect()
             
-            status, response = self.connection.create(folder_name)
+            # Кодируем имя папки в Modified UTF-7 для IMAP
+            encoded_folder = encode_imap_folder_name(folder_name)
+            logger.debug(f"Создание папки: '{folder_name}' -> encoded: '{encoded_folder}'")
+            
+            status, response = self.connection.create(encoded_folder)
             
             if status == "OK":
                 logger.info(f"Создана папка: {folder_name}")
@@ -96,7 +135,7 @@ class EmailClient:
                 return False
                 
         except Exception as e:
-            logger.error(f"Ошибка создания папки: {e}")
+            logger.error(f"Ошибка создания папки '{folder_name}': {e}")
             return False
     
     def select_folder(self, folder_name: str = "INBOX") -> bool:
@@ -105,7 +144,10 @@ class EmailClient:
             if not self.connected:
                 self.connect()
             
-            status, messages = self.connection.select(folder_name)
+            # Кодируем имя папки в Modified UTF-7 для IMAP
+            encoded_folder = encode_imap_folder_name(folder_name)
+            
+            status, messages = self.connection.select(encoded_folder)
             
             if status == "OK":
                 message_count = int(messages[0])
@@ -116,7 +158,7 @@ class EmailClient:
                 return False
                 
         except Exception as e:
-            logger.error(f"Ошибка выбора папки: {e}")
+            logger.error(f"Ошибка выбора папки '{folder_name}': {e}")
             return False
     
     def fetch_emails(self, limit: int = 50, unseen_only: bool = True) -> List[Dict]:
@@ -259,9 +301,12 @@ class EmailClient:
                     # Если не получилось через лейблы, пробуем стандартный способ
                     pass
             
+            # Кодируем имя папки в Modified UTF-7 для IMAP
+            encoded_folder = encode_imap_folder_name(destination_folder)
+            
             # Стандартное перемещение для обычных папок
             # Копирование письма в целевую папку
-            status = self.connection.copy(email_id_bytes, destination_folder)
+            status = self.connection.copy(email_id_bytes, encoded_folder)
             
             if status[0] == "OK":
                 # Пометка оригинального письма как удаленного
