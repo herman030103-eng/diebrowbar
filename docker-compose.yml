@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  email-agent:
+    build: .
+    container_name: ai-email-agent
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    environment:
+      - TZ=Europe/Moscow
+    networks:
+      - email-agent-network
+
+networks:
+  email-agent-network:
+    driver: bridge
