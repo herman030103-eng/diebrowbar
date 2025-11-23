@@ -237,22 +237,31 @@ class EmailClient:
             if not self.connected:
                 self.connect()
             
+            # Преобразование email_id в bytes если это строка
+            if isinstance(email_id, str):
+                email_id_bytes = email_id.encode()
+            else:
+                email_id_bytes = email_id
+            
+            logger.debug(f"Попытка переместить письмо {email_id} в папку '{destination_folder}'")
+            
             # Копирование письма в целевую папку
-            status = self.connection.copy(email_id, destination_folder)
+            status = self.connection.copy(email_id_bytes, destination_folder)
             
             if status[0] == "OK":
                 # Пометка оригинального письма как удаленного
-                self.connection.store(email_id, "+FLAGS", "\\Deleted")
+                self.connection.store(email_id_bytes, "+FLAGS", "\\Deleted")
                 self.connection.expunge()
                 
                 logger.info(f"Письмо {email_id} перемещено в {destination_folder}")
                 return True
             else:
-                logger.warning(f"Не удалось переместить письмо {email_id}")
+                logger.warning(f"Не удалось переместить письмо {email_id}: {status}")
                 return False
                 
         except Exception as e:
-            logger.error(f"Ошибка перемещения письма: {e}")
+            logger.error(f"Ошибка перемещения письма {email_id} в '{destination_folder}': {e}")
+            logger.debug(f"Email ID type: {type(email_id)}, Folder: '{destination_folder}'")
             return False
     
     def delete_email(self, email_id: str) -> bool:
@@ -261,8 +270,14 @@ class EmailClient:
             if not self.connected:
                 self.connect()
             
+            # Преобразование email_id в bytes если это строка
+            if isinstance(email_id, str):
+                email_id_bytes = email_id.encode()
+            else:
+                email_id_bytes = email_id
+            
             # Пометка письма как удаленного
-            self.connection.store(email_id, "+FLAGS", "\\Deleted")
+            self.connection.store(email_id_bytes, "+FLAGS", "\\Deleted")
             self.connection.expunge()
             
             logger.info(f"Письмо {email_id} удалено")
@@ -278,7 +293,13 @@ class EmailClient:
             if not self.connected:
                 self.connect()
             
-            self.connection.store(email_id, "+FLAGS", "\\Seen")
+            # Преобразование email_id в bytes если это строка
+            if isinstance(email_id, str):
+                email_id_bytes = email_id.encode()
+            else:
+                email_id_bytes = email_id
+            
+            self.connection.store(email_id_bytes, "+FLAGS", "\\Seen")
             logger.debug(f"Письмо {email_id} помечено как прочитанное")
             return True
             
