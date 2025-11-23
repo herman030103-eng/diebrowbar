@@ -1,5 +1,16 @@
 # AI Email Agent - Инструкция по установке и запуску
 
+## 🚀 Быстрый старт
+
+**Нужна помощь с App Password для Gmail?** → [Смотрите детальную инструкцию ниже](#для-gmail)
+
+**Основные шаги:**
+1. Установите Python 3.10+
+2. Настройте `.env` файл (инструкции ниже)
+3. Запустите: `./start.sh`
+
+---
+
 ## 📋 Описание проекта
 
 AI Email Agent - это интеллектуальная система управления электронной почтой, которая использует искусственный интеллект (LLM) для автоматической классификации, сортировки и управления вашими письмами.
@@ -108,18 +119,34 @@ cp .env.example .env
 
 #### Для Gmail:
 
-1. Включите двухфакторную аутентификацию в вашем Google аккаунте
-2. Создайте **App Password** (пароль приложения):
+**📖 Нужна подробная инструкция?** → [Смотрите GMAIL_APP_PASSWORD.md](GMAIL_APP_PASSWORD.md)
+
+**Краткая инструкция:**
+
+1. **Включите двухфакторную аутентификацию** (обязательно для App Passwords):
    - Перейдите на https://myaccount.google.com/security
-   - Найдите "App passwords" или "Пароли приложений"
-   - Создайте новый пароль для "Mail"
+   - Найдите раздел "Двухэтапная аутентификация" / "2-Step Verification"
+   - Следуйте инструкциям для включения
+
+2. **Создайте App Password** (пароль приложения):
+   - Перейдите напрямую: https://myaccount.google.com/apppasswords
+   - Или через https://myaccount.google.com/security → найдите "App passwords" / "Пароли приложений"
+   - В поле "Select app" выберите "Mail" или "Other (Custom name)"
+   - Введите название, например "Email Agent"
+   - Нажмите "Generate" / "Создать"
+   - **Google покажет 16-значный пароль** (например: `abcd efgh ijkl mnop`)
+   - **ВАЖНО**: Скопируйте этот пароль сразу! Он больше не будет показан
+   - Используйте этот пароль БЕЗ пробелов: `abcdefghijklmnop`
+
 3. В файле `.env` укажите:
 
 ```env
 EMAIL_PROVIDER=gmail
 EMAIL_ADDRESS=your_email@gmail.com
-EMAIL_PASSWORD=your_16_character_app_password
+EMAIL_PASSWORD=abcdefghijklmnop  # 16 символов БЕЗ пробелов
 ```
+
+**⚠️ Примечание**: НЕ используйте ваш обычный пароль от Google! Только App Password!
 
 #### Для Yandex:
 
@@ -333,9 +360,26 @@ SELECT * FROM statistics ORDER BY date DESC LIMIT 7;
 ### Проблема: Не удается подключиться к Gmail
 
 **Решение:**
-1. Убедитесь, что включена двухфакторная аутентификация
-2. Используйте App Password, а не обычный пароль
-3. Проверьте, что IMAP включен в настройках Gmail
+1. **Включите двухфакторную аутентификацию**: 
+   - Перейдите на https://myaccount.google.com/security
+   - Включите "2-Step Verification"
+   
+2. **Создайте App Password**:
+   - Откройте https://myaccount.google.com/apppasswords
+   - Выберите приложение "Mail" или "Other"
+   - Скопируйте 16-значный пароль (без пробелов)
+   - Вставьте его в .env как EMAIL_PASSWORD
+   
+3. **НЕ используйте обычный пароль от Google!** Только App Password работает с IMAP
+
+4. **Проверьте, что IMAP включен**:
+   - Откройте Gmail → Настройки → "Forwarding and POP/IMAP"
+   - Убедитесь, что "IMAP access" включен
+
+5. **Если всё равно не работает**:
+   - Проверьте логи: `tail -f logs/email_agent.log`
+   - Убедитесь, что EMAIL_PASSWORD без пробелов
+   - Попробуйте пересоздать App Password
 
 ### Проблема: Ошибка OpenAI API
 
