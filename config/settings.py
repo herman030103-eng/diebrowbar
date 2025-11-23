@@ -80,7 +80,8 @@ class Config:
     CHECK_INTERVAL_MINUTES = int(os.getenv("CHECK_INTERVAL_MINUTES", "5"))
     MAX_EMAILS_PER_CHECK = int(os.getenv("MAX_EMAILS_PER_CHECK", "50"))
     ENABLE_AUTO_DELETE = os.getenv("ENABLE_AUTO_DELETE", "false").lower() == "true"
-    ENABLE_AUTO_ARCHIVE = os.getenv("ENABLE_AUTO_ARCHIVE", "true").lower() == "true"
+    ENABLE_AUTO_ARCHIVE = os.getenv("ENABLE_AUTO_ARCHIVE", "false").lower() == "true"
+    ENABLE_AUTO_CATEGORIZE = os.getenv("ENABLE_AUTO_CATEGORIZE", "true").lower() == "true"
     
     # База данных / Database
     DATABASE_PATH = os.getenv("DATABASE_PATH", str(DATA_DIR / "email_agent.db"))

@@ -30,13 +30,16 @@ class EmailClassifier:
     def __init__(self):
         self.provider = Config.LLM_PROVIDER
         self.client = None
+        # Кэш для одинаковых писем (по хешу sender+subject)
+        self.classification_cache = {}
         
         if self.provider == "openai":
             from openai import OpenAI
             self.client = OpenAI(api_key=Config.OPENAI_API_KEY)
             self.model = Config.OPENAI_MODEL
             self.max_tokens = Config.OPENAI_MAX_TOKENS
-            self.temperature = Config.OPENAI_TEMPERATURE
+            # Снижаем температуру для большей консистентности
+            self.temperature = max(0.0, Config.OPENAI_TEMPERATURE - 0.2)
         elif self.provider == "anthropic":
             from anthropic import Anthropic
             self.client = Anthropic(api_key=Config.ANTHROPIC_API_KEY)
@@ -46,14 +49,14 @@ class EmailClassifier:
             # Perplexity использует OpenAI-совместимый API
             self.model = Config.PERPLEXITY_MODEL
             self.max_tokens = Config.PERPLEXITY_MAX_TOKENS
-            self.temperature = Config.PERPLEXITY_TEMPERATURE
+            self.temperature = max(0.0, Config.PERPLEXITY_TEMPERATURE - 0.2)
             self.api_key = Config.PERPLEXITY_API_KEY
         elif self.provider == "ollama":
             # Ollama локальный
             self.base_url = Config.OLLAMA_BASE_URL
             self.model = Config.OLLAMA_MODEL
             self.max_tokens = Config.OLLAMA_MAX_TOKENS
-            self.temperature = Config.OLLAMA_TEMPERATURE
+            self.temperature = max(0.0, Config.OLLAMA_TEMPERATURE - 0.2)
         elif self.provider == "huggingface":
             # Hugging Face Inference API
             self.model = Config.HUGGINGFACE_MODEL
@@ -63,6 +66,7 @@ class EmailClassifier:
             raise ValueError(f"Неподдерживаемый LLM провайдер: {self.provider}")
         
         logger.info(f"Инициализирован классификатор с провайдером: {self.provider}")
+        logger.info(f"Температура для консистентности: {getattr(self, 'temperature', 'N/A')}")
     
     def classify_email(self, email_data: Dict) -> Dict:
         """
@@ -85,6 +89,18 @@ class EmailClassifier:
             sender = email_data.get("sender", "")
             body = email_data.get("body", "")[:2000]  # Ограничение для LLM
             
+            # Создаем ключ кэша на основе отправителя и темы
+            # Одинаковые письма от одного отправителя должны классифицироваться одинаково
+            import hashlib
+            cache_key = hashlib.md5(f"{sender}:{subject}".encode()).hexdigest()
+            
+            # Проверяем кэш
+            if cache_key in self.classification_cache:
+                logger.debug(f"Использован кэш классификации для: {subject[:50]}")
+                cached_result = self.classification_cache[cache_key].copy()
+                cached_result["from_cache"] = True
+                return cached_result
+            
             # Формирование промпта
             prompt = self._create_classification_prompt(subject, sender, body)
             
@@ -105,6 +121,16 @@ class EmailClassifier:
             # Парсинг ответа
             result = self._parse_llm_response(response)
             
+            # Сохраняем в кэш
+            self.classification_cache[cache_key] = result.copy()
+            # Ограничиваем размер кэша
+            if len(self.classification_cache) > 1000:
+                # Удаляем старые записи (первые 200)
+                keys_to_remove = list(self.classification_cache.keys())[:200]
+                for key in keys_to_remove:
+                    del self.classification_cache[key]
+            
+            result["from_cache"] = False
             logger.info(f"Письмо классифицировано: {result['category']} (уверенность: {result['confidence']})")
             
             return result
@@ -117,37 +143,52 @@ class EmailClassifier:
         """Создание промпта для классификации"""
         categories_list = "\n".join([f"- {key}: {value}" for key, value in self.CATEGORIES.items()])
         
-        prompt = f"""Проанализируй следующее email-письмо и классифицируй его.
+        prompt = f"""Ты - система классификации email-писем. Твоя задача - анализировать письма и относить их к ТОЧНО ОДНОЙ категории.
 
+ВАЖНО: Будь консистентным! Одинаковые письма от одного отправителя должны попадать в ОДНУ И ТУ ЖЕ категорию.
+
+Письмо для анализа:
 Тема: {subject}
 Отправитель: {sender}
-Тело письма: {body}
+Тело: {body[:500]}
 
-Доступные категории:
+Доступные категории (выбери ОДНУ):
 {categories_list}
 
-Верни ответ СТРОГО в формате JSON со следующей структурой:
+Правила классификации:
+1. SPAM - только явный спам, фишинг, мошенничество
+2. PROMO - рекламные рассылки, промо-акции, маркетинг
+3. SOCIAL - уведомления от соцсетей (Facebook, LinkedIn, Twitter, Instagram, Discord, Telegram)
+4. UPDATES - уведомления от сервисов (GitHub, Jira, системные уведомления)
+5. WORK - рабочая переписка, деловая корреспонденция
+6. PERSONAL - личные письма от людей
+7. FINANCE - банки, платежи, счета, финансовые отчеты
+8. SHOPPING - заказы, доставка, интернет-магазины (Amazon, AliExpress и т.д.)
+9. TRAVEL - авиабилеты, отели, бронирования
+10. IMPORTANT - критически важные письма, требующие срочного внимания
+
+Верни ТОЛЬКО JSON (без markdown, без комментариев):
 {{
-    "category": "CATEGORY_NAME",
-    "confidence": 0.0-1.0,
-    "reasoning": "краткое объяснение",
-    "suggested_folder": "название папки для сортировки",
-    "is_spam": true/false,
-    "should_delete": true/false,
-    "should_archive": true/false,
-    "priority": "high/medium/low"
+    "category": "ТОЧНОЕ_ИМЯ_КАТЕГОРИИ",
+    "confidence": 0.95,
+    "reasoning": "краткое объяснение выбора",
+    "suggested_folder": "название папки",
+    "is_spam": false,
+    "should_delete": false,
+    "should_archive": false,
+    "priority": "medium"
 }}
 
-Правила:
-1. category должна быть одной из доступных категорий
-2. confidence - число от 0 до 1
-3. suggested_folder - предложенное имя папки на русском языке
-4. is_spam - true если письмо выглядит как спам
-5. should_delete - true если письмо следует удалить
-6. should_archive - true если письмо можно заархивировать
-7. priority - приоритет письма (high/medium/low)
+Требования к ответу:
+1. category - СТРОГО одна из перечисленных выше (SPAM, PROMO, SOCIAL, UPDATES, WORK, PERSONAL, FINANCE, SHOPPING, TRAVEL, IMPORTANT)
+2. confidence - реальная оценка уверенности от 0.0 до 1.0 (не завышай!)
+3. suggested_folder - краткое название папки на русском
+4. is_spam - true только для явного спама
+5. should_delete - true только для явного спама
+6. should_archive - true для неважных уведомлений
+7. priority - "high" только для действительно важных
 
-Отвечай ТОЛЬКО JSON, без дополнительного текста."""
+Отвечай ТОЛЬКО валидным JSON без дополнительного текста!"""
         
         return prompt
     

@@ -215,9 +215,27 @@ class EmailAgent:
                     final_action = "delete"
                 elif classification.get("should_archive", False) and Config.ENABLE_AUTO_ARCHIVE:
                     final_action = "archive"
-                elif classification.get("suggested_folder"):
+                elif Config.ENABLE_AUTO_CATEGORIZE:
+                    # Автоматическое перемещение по категории
+                    # Используем suggested_folder от LLM или имя категории
+                    category = classification.get("category", "UNKNOWN")
+                    suggested_folder = classification.get("suggested_folder")
+                    
+                    # Определяем папку назначения
+                    if suggested_folder:
+                        destination_folder = suggested_folder
+                    else:
+                        # Используем название категории как имя папки
+                        destination_folder = category
+                    
+                    # Не перемещаем SPAM в отдельную папку, если не удаляем
+                    if category == "SPAM" and not Config.ENABLE_AUTO_DELETE:
+                        # SPAM перемещаем в папку Spam
+                        destination_folder = "Spam"
+                    
                     final_action = "move"
-                    destination_folder = classification.get("suggested_folder")
+                    from_cache = " (из кэша)" if classification.get("from_cache", False) else ""
+                    logger.info(f"Автокатегоризация: {destination_folder} (категория: {category}, confidence: {classification.get('confidence', 0):.2f}){from_cache}")
             
             # Выполнение действия
             action_success = await self._execute_action(
